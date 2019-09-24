@@ -21,7 +21,7 @@ void msdos_init_input(void);
 void msdos_shutdown_sound(void);
 void msdos_shutdown_input(void);
 int  frontend_help (int argc, char **argv);
-int do_frontend ();
+int do_frontend (bool nofrontend, char *param_game);
 void parse_cmdline (int argc, char **argv, int game);
 void set_mame_args (int argc, char **argv);
 void init_inpdir(void);
@@ -92,6 +92,8 @@ int main(int argc, char **argv)
   int res, i, j = 0, game_index;
   char *playbackname = NULL;
   int use_fame=0;
+  bool nofrontend = false;
+  char param_game[16] = "\0";
   extern int video_scale;
   extern int video_border;
   extern int video_aspect;
@@ -106,6 +108,10 @@ int main(int argc, char **argv)
   {
     if (strcasecmp(argv[i],"-log") == 0)
       errorlog = fopen("error.log","wa");
+    if (strcasecmp(argv[i],"-nofrontend") == 0)
+      nofrontend = true;
+    if (argv[i][0] != '-')
+       strcpy(param_game,argv[i]);
   }
 
   // initialization
@@ -114,7 +120,7 @@ int main(int argc, char **argv)
   bool in_frontend = true;
   while(in_frontend)
   {
-    if(!do_frontend())
+    if(!do_frontend(nofrontend, param_game))
     {
       printf("Frontend closing down.\n");
       in_frontend = false;
@@ -370,6 +376,8 @@ int main(int argc, char **argv)
       // go for it
       printf ("%s (%s)...\n",drivers[game_index]->description,drivers[game_index]->name);
       res = run_game(game_index);
+      if(nofrontend == true)
+        in_frontend = false;
       logerror("Closing files...\n");
 
       if (options.playback) osd_fclose (options.playback);

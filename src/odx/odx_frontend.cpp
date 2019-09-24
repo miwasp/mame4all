@@ -64,24 +64,27 @@ static void blit_bmp_8bpp(unsigned char *out, unsigned char *in)
   SDL_FreeSurface(image);
 }
 
-static void odx_intro_screen(void)
+static void odx_intro_screen(bool nofrontend)
 {
   char name[256];
   FILE *f;
-  sprintf(name,"skins/splash.bmp");
-  f=fopen(name,"rb");
-  if (f)
+  if(nofrontend == false)
   {
-    fread(splash_bmp,1,BMP_SIZE,f);
-    fclose(f);
+    sprintf(name,"skins/splash.bmp");
+    f=fopen(name,"rb");
+    if (f)
+    {
+      fread(splash_bmp,1,BMP_SIZE,f);
+      fclose(f);
+    }
+    blit_bmp_8bpp(od_screen8,splash_bmp);
+
+    odx_gamelist_text_out(10, ODX_SCREEN_HEIGHT - 16, frontend_build_version);
+    odx_gamelist_text_out(ODX_SCREEN_WIDTH - (10 * 8),ODX_SCREEN_HEIGHT - 16, "bob_fossil");
+
+    odx_video_flip();
+    odx_joystick_press();
   }
-  blit_bmp_8bpp(od_screen8,splash_bmp);
-
-  odx_gamelist_text_out(10, ODX_SCREEN_HEIGHT - 16, frontend_build_version);
-  odx_gamelist_text_out(ODX_SCREEN_WIDTH - (10 * 8),ODX_SCREEN_HEIGHT - 16, "bob_fossil");
-
-  odx_video_flip();
-  odx_joystick_press();
 
   sprintf(name,"skins/menu.bmp");
   f=fopen(name,"rb");
@@ -289,7 +292,7 @@ static char *game_list_description (int index)
   return ((char *)0);
 }
 
-static int show_options(char *game)
+static int show_options(char *game, bool nofrontend)
 {
   unsigned long ExKey=0;
   int selected_option=0;
@@ -323,10 +326,15 @@ static int show_options(char *game)
     odx_gamelist_text_out(X_BUILD, 10, frontend_build_version);
 
     // draw the options
-    strcpy(text, game_list_description(last_game_selected));
-    if(strlen(game_list_description(last_game_selected)) > 40){
-      text[40] = '\0';
-      strcat(text, "...");
+    if(nofrontend == true)
+      strcpy(text, game);
+    else
+    {
+      strcpy(text, game_list_description(last_game_selected));
+      if(strlen(game_list_description(last_game_selected)) > 40){
+        text[40] = '\0';
+        strcat(text, "...");
+      }
     }
     odx_gamelist_text_out(25, 70, text);
 
@@ -706,7 +714,7 @@ void odx_save_config(void)
   }
 }
 
-static void select_game(char *emu, char *game)
+static void select_game(char *emu, char *game, bool nofrontend, char *param_game)
 {
   unsigned long ExKey;
 
@@ -719,36 +727,47 @@ static void select_game(char *emu, char *game)
   /* Wait until user selects a game */
   while(!want_exit)
   {
-    game_list_view(&last_game_selected);
-    odx_video_flip();
-
-    if( (odx_joystick_read())) odx_timer_delay(100);
-
-    while(!(ExKey=odx_joystick_read()))
+    if (nofrontend == true)
     {
-    }
-
-    //if ((ExKey & OD_L) && (ExKey & OD_R) )
-    if(ExKey & OD_MENU)
-    {
-      odx_save_config();
-      odx_exit("");
-      want_exit = true;
-    }
-    if (ExKey & OD_UP) last_game_selected--;
-    if (ExKey & OD_DOWN) last_game_selected++;
-    if (ExKey & OD_LEFT) last_game_selected-=22; // ALEK 21
-    if (ExKey & OD_RIGHT) last_game_selected+=22; // ALEK 21
-
-    if ((ExKey & OD_A) || (ExKey & OD_START) )
-    {
-      /* Select the game */
-      game_list_select(last_game_selected, game, emu);
-
-      /* Emulation Options */
-      if(show_options(game))
+      strcpy(game, param_game);
+      if(show_options(game, nofrontend))
       {
         break;
+      }
+    }
+    else
+    {
+      game_list_view(&last_game_selected);
+      odx_video_flip();
+
+      if( (odx_joystick_read())) odx_timer_delay(100);
+
+      while(!(ExKey=odx_joystick_read()))
+      {
+      }
+
+      //if ((ExKey & OD_L) && (ExKey & OD_R) )
+      if(ExKey & OD_MENU)
+      {
+        odx_save_config();
+        odx_exit("");
+        want_exit = true;
+      }
+      if (ExKey & OD_UP) last_game_selected--;
+      if (ExKey & OD_DOWN) last_game_selected++;
+      if (ExKey & OD_LEFT) last_game_selected-=22; // ALEK 21
+      if (ExKey & OD_RIGHT) last_game_selected+=22; // ALEK 21
+
+      if ((ExKey & OD_A) || (ExKey & OD_START) )
+      {
+        /* Select the game */
+        game_list_select(last_game_selected, game, emu);
+
+        /* Emulation Options */
+        if(show_options(game,nofrontend))
+        {
+          break;
+        }
       }
     }
   }
@@ -1309,7 +1328,7 @@ void gethomedir(char *dir, char* name)
   }
 }
 
-int do_frontend ()
+int do_frontend (bool nofrontend, char *param_game)
 {
   char curDir[512];
 
@@ -1334,7 +1353,7 @@ int do_frontend ()
     //odx_init(1000,16,44100,16,0,60);
 
     /* Show intro screen */
-    odx_intro_screen();
+    odx_intro_screen(nofrontend);
 
     /* Read default configuration */
     odx_load_config();
@@ -1375,7 +1394,7 @@ int do_frontend ()
   if(!want_exit)
   {
     /* Select Game */
-    select_game(playemu,playgame);
+    select_game(playemu,playgame, nofrontend, param_game);
 
     /* Write default configuration */
     odx_save_config();
