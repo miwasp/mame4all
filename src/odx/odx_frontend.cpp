@@ -801,7 +801,7 @@ void execute_game (char *playemu, char *playgame)
     case 1:
     {
       // Scale aspect.
-      mame_args[margc]="-aspect";
+      mame_args[margc]="-bestscale";
       margc++;
     }
     break;
